@@ -1,5 +1,5 @@
 #location of required codes
-DRIVER_LOC=$(cat ../locations/MDI_metadynamics)
+DRIVER_LOC=$(cat ../locations/MDI_PyMeta)
 LAMMPS_LOC=$(cat ../locations/LAMMPS)
 
 #remove old files
@@ -15,6 +15,6 @@ cd work
 ${LAMMPS_LOC} -mdi "-role ENGINE -name LAMMPS -method TCP -port 8021 -hostname localhost" -in in.lj > lammps.out &
 
 #launch driver
-${DRIVER_LOC} -mdi "-role DRIVER -name driver -method TCP -port 8021" &
+python ${DRIVER_LOC} -mdi "-role DRIVER -name driver -method TCP -port 8021" &
 
 wait
