@@ -1,4 +1,3 @@
-
 import sys
 
 # Import the MDI Library
@@ -19,6 +18,7 @@ except ImportError:
 import utils.collectivevariable as cv
 import utils.distance as distance
 import utils.utils as ut
+import utils.plot as pl
 
 if __name__ == "__main__":
 
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     # Input parameters
     width = 0.2 * angstrom_to_atomic # Gaussian width of first collective variable
     height = 0.1 * kcalmol_to_atomic # Gaussian height of first collective variable
-    total_steps = 100 # Number of MD iterations. Note timestep = 2fs
+    total_steps = 8000 # Number of MD iterations. Note timestep = 2fs
     tau_gaussian = 400 # Frequency of addition of Gaussians
     upper_restraint = 8.0 * angstrom_to_atomic
     lower_restraint = 2.4 * angstrom_to_atomic
@@ -62,6 +62,9 @@ if __name__ == "__main__":
     verbose = False;
 
     s_of_t = [ ] # value of collective variable at time t'
+
+    # Creat a plot of the results
+    my_plot = pl.AnimatedPlot(kcalmol_to_atomic, angstrom_to_atomic)
 
     # Connect to the engines
     comm = mdi.MDI_Accept_Communicator()
@@ -96,7 +99,6 @@ if __name__ == "__main__":
 
         # Note: The following assumes that the cell vectors are orthogonal
         box_len = [ cell_size[ 4 * i ] for i in range(3) ]
-        print("   Box length: " + str(box_len))
 
         # Get current Cartesian coordinates
         mdi.MDI_Send_Command("<COORDS", comm)
@@ -109,6 +111,7 @@ if __name__ == "__main__":
         # Update the bias function
         if time_step % tau_gaussian == 0:
             s_of_t.append(colvar_val)
+            my_plot.show(s_of_t, width, height)
 
         # Evaluate the derivative of Gaussians wrt to Cartesian Coordinates
         dVg_ds = 0.0
@@ -138,4 +141,10 @@ if __name__ == "__main__":
 
     # Send the "EXIT" command to each of the engines
     mdi.MDI_Send_Command("EXIT", comm)
+
+    # Print the data to an output file
+    output = open("s_of_t.out", "w")
+    for i in range(len(s_of_t)):
+        output.write(str(i) + " " + str(s_of_t[i]) + "\n")
     
+    my_plot.finalize()
