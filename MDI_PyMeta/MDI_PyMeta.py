@@ -54,8 +54,8 @@ if __name__ == "__main__":
     height = 0.1 * kcalmol_to_atomic # Gaussian height of first collective variable
     total_steps = 8000 # Number of MD iterations. Note timestep = 2fs
     tau_gaussian = 400 # Frequency of addition of Gaussians
-    upper_restraint = 8.0 * angstrom_to_atomic
-    lower_restraint = 2.4 * angstrom_to_atomic
+    upper_restraint = 14.0 * angstrom_to_atomic
+    lower_restraint = 1.0 * angstrom_to_atomic
     upper_window = 8.0 * angstrom_to_atomic
     lower_window = 2.4 * angstrom_to_atomic
     k_restraint = 10 * kcalmol_per_angstrom_to_atomic
@@ -137,7 +137,7 @@ if __name__ == "__main__":
         mdi.MDI_Send_Command(">FORCES", comm)
         mdi.MDI_Send(forces, 3*natoms, mdi.MDI_DOUBLE, comm)
 
-        print("   Colvar_val: " + str(colvar_val))
+        print("   Colvar_val: " + str(colvar_val/angstrom_to_atomic))
 
     # Send the "EXIT" command to each of the engines
     mdi.MDI_Send_Command("EXIT", comm)

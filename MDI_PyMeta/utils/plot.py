@@ -18,17 +18,24 @@ class AnimatedPlot():
         self.x_max = 14.0 * angstrom_to_atomic
         self.x = np.linspace(self.x_min, self.x_max, 100)
 
+        # The most recent nsmooth Gaussians will be scaled in a running average
+        self.nsmooth = 2500
 
 
     def show(self, s_of_t, width, height):
 
-        gauss = lambda x, n: np.sum(height * np.exp(-(x - s_of_t[:n])**2/(2*width**2)))
 
         f_x = np.zeros(len(self.x))
         n = len(s_of_t)
 
-        print("N: " + str(n))
-        f_x = np.array([-gauss(xx,n) for xx in self.x])
+        #gauss = lambda x, n: np.sum(height * np.exp(-(x - s_of_t[:n])**2/(2*width**2)))
+        #f_x = np.array([-gauss(xx,n) for xx in self.x])
+
+        for i in range(len(s_of_t)):
+            scaling = min( float(len(s_of_t) - i) / float(self.nsmooth), 1.0)
+            for ix in range(len(self.x)):
+                x = self.x[ix]
+                f_x[ix] -= scaling * height * np.exp(-(x - s_of_t[i])**2/(2*width**2))
         f_x -= f_x.min()
 
         self.ax1.clear()
