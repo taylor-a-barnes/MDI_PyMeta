@@ -15,6 +15,7 @@ except ImportError:
     use_mpi4py = False
     mpi_comm_world = None
 
+import math
 import utils.collectivevariable as cv
 import utils.distance as distance
 import utils.utils as ut
@@ -52,7 +53,7 @@ if __name__ == "__main__":
     # Input parameters
     width = 0.2 * angstrom_to_atomic # Gaussian width of first collective variable
     height = 0.1 * kcalmol_to_atomic # Gaussian height of first collective variable
-    total_steps = 8000 # Number of MD iterations. Note timestep = 2fs
+    total_steps = 30000000 # Number of MD iterations. Note timestep = 2fs
     tau_gaussian = 400 # Frequency of addition of Gaussians
     upper_restraint = 14.0 * angstrom_to_atomic
     lower_restraint = 1.0 * angstrom_to_atomic
@@ -60,6 +61,12 @@ if __name__ == "__main__":
     lower_window = 2.4 * angstrom_to_atomic
     k_restraint = 10 * kcalmol_per_angstrom_to_atomic
     verbose = False;
+
+    grid_fac = 1
+    ngrid = 4000 * grid_fac
+    dgrid = 0.005 * angstrom_to_atomic / float(grid_fac)
+    bias = [ 0.0 for i in range(ngrid) ]
+    bias_derv = [ 0.0 for i in range(ngrid) ]
 
     s_of_t = [ ] # value of collective variable at time t'
 
@@ -111,14 +118,24 @@ if __name__ == "__main__":
         # Update the bias function
         if time_step % tau_gaussian == 0:
             s_of_t.append(colvar_val)
-            my_plot.show(s_of_t, width, height)
+            for i in range(ngrid):
+                arg = ( i * dgrid ) - colvar_val
+                bias[i] -= ut.Gaussian(arg, width, height)
+                bias_derv[i] += ut.Gaussian_derv(arg, width, height)
+            my_plot.show(s_of_t, width, height, bias, dgrid)
 
         # Evaluate the derivative of Gaussians wrt to Cartesian Coordinates
-        dVg_ds = 0.0
-        for gauss in s_of_t:
-            s_of_x = colvar_val
-            arg = s_of_x - gauss
-            dVg_ds += ut.Gaussian_derv(arg, width, height)
+        #dVg_ds = 0.0
+        #for gauss in s_of_t:
+        #    s_of_x = colvar_val
+        #    arg = s_of_x - gauss
+        #    dVg_ds += ut.Gaussian_derv(arg, width, height)
+        index1 = math.floor( colvar_val / dgrid )
+        index2 = index1 + 1
+        fgrid = ( colvar_val / dgrid ) - float(index1)
+        test = (1.0 - fgrid) * bias_derv[ index1 ] + fgrid * bias_derv[ index2 ]
+        #print( "Err: " + str(test) + " " + str( dVg_ds ) + " " + str( (test - dVg_ds) / max( abs(dVg_ds), 0.00000000000001 ) ) )
+        dVg_ds = test
         ds_dr = colvar.GetGradient()
 
         # Apply restraints

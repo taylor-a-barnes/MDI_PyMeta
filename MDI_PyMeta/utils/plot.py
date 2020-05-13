@@ -22,24 +22,26 @@ class AnimatedPlot():
         self.nsmooth = 2500
 
 
-    def show(self, s_of_t, width, height):
+    def show(self, s_of_t, width, height, bias, dgrid):
 
+        #f_x = np.zeros(len(self.x))
+        #n = len(s_of_t)
 
-        f_x = np.zeros(len(self.x))
-        n = len(s_of_t)
+        #for i in range(len(s_of_t)):
+        #    scaling = 1.0
+        #    for ix in range(len(self.x)):
+        #        x = self.x[ix]
+        #        f_x[ix] -= scaling * height * np.exp(-(x - s_of_t[i])**2/(2*width**2))
+        #f_x -= f_x.min()
 
-        #gauss = lambda x, n: np.sum(height * np.exp(-(x - s_of_t[:n])**2/(2*width**2)))
-        #f_x = np.array([-gauss(xx,n) for xx in self.x])
-
-        for i in range(len(s_of_t)):
-            scaling = min( float(len(s_of_t) - i) / float(self.nsmooth), 1.0)
-            for ix in range(len(self.x)):
-                x = self.x[ix]
-                f_x[ix] -= scaling * height * np.exp(-(x - s_of_t[i])**2/(2*width**2))
-        f_x -= f_x.min()
+        min_bias = min(bias)
+        xbias = [ (i * dgrid ) / self.angstrom_to_atomic for i in range(len(bias)) ]
+        ybias = [ ( bias[i] - min_bias ) / self.kcalmol_to_atomic for i in range(len(bias)) ]
 
         self.ax1.clear()
-        self.ax1.plot( self.x / self.angstrom_to_atomic, f_x / self.kcalmol_to_atomic )
+        #self.ax1.plot( self.x / self.angstrom_to_atomic, f_x / self.kcalmol_to_atomic,
+        #               xbias, ybias )
+        self.ax1.plot( xbias, ybias )
 
         plt.show(block = False)
         plt.pause(0.0001)
