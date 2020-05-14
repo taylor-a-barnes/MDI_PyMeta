@@ -53,9 +53,9 @@ if __name__ == "__main__":
     # Input parameters
     width = 0.2 * angstrom_to_atomic # Gaussian width of first collective variable
     height = 0.1 * kcalmol_to_atomic # Gaussian height of first collective variable
-    total_steps = 30000000 # Number of MD iterations. Note timestep = 2fs
-    tau_gaussian = 400 # Frequency of addition of Gaussians
-    upper_restraint = 14.0 * angstrom_to_atomic
+    total_steps = 15000000 # Number of MD iterations. Note timestep = 2fs
+    tau_gaussian = 200 # Frequency of addition of Gaussians
+    upper_restraint = 10.0 * angstrom_to_atomic
     lower_restraint = 1.0 * angstrom_to_atomic
     upper_window = 8.0 * angstrom_to_atomic
     lower_window = 2.4 * angstrom_to_atomic
@@ -68,7 +68,9 @@ if __name__ == "__main__":
     bias = [ 0.0 for i in range(ngrid) ]
     bias_derv = [ 0.0 for i in range(ngrid) ]
 
-    s_of_t = [ ] # value of collective variable at time t'
+    output = open("s_of_t.out", "w")
+
+    #s_of_t = [ ] # value of collective variable at time t'
 
     # Creat a plot of the results
     my_plot = pl.AnimatedPlot(kcalmol_to_atomic, angstrom_to_atomic)
@@ -98,7 +100,7 @@ if __name__ == "__main__":
         print("Iteration " + str(time_step) + " out of " + str(total_steps))
 
         # Proceed to the next point of force evaluation
-        mdi.MDI_Send_Command("@FORCES", comm)
+        mdi.MDI_Send_Command("@PRE-FORCES", comm)
 
         # Get simulation box size
         mdi.MDI_Send_Command("<CELL", comm)
@@ -117,12 +119,13 @@ if __name__ == "__main__":
 
         # Update the bias function
         if time_step % tau_gaussian == 0:
-            s_of_t.append(colvar_val)
+            #s_of_t.append(colvar_val)
+            output.write(str(time_step) + " " + str(colvar_val) + " " + str(width) + " " + str(height) + "\n")
             for i in range(ngrid):
                 arg = ( i * dgrid ) - colvar_val
                 bias[i] -= ut.Gaussian(arg, width, height)
                 bias_derv[i] += ut.Gaussian_derv(arg, width, height)
-            my_plot.show(s_of_t, width, height, bias, dgrid)
+            #my_plot.show(s_of_t, width, height, bias, dgrid)
 
         # Evaluate the derivative of Gaussians wrt to Cartesian Coordinates
         #dVg_ds = 0.0
@@ -160,8 +163,8 @@ if __name__ == "__main__":
     mdi.MDI_Send_Command("EXIT", comm)
 
     # Print the data to an output file
-    output = open("s_of_t.out", "w")
-    for i in range(len(s_of_t)):
-        output.write(str(i) + " " + str(s_of_t[i]) + "\n")
+    #output = open("s_of_t.out", "w")
+    #for i in range(len(s_of_t)):
+    #    output.write(str(i) + " " + str(s_of_t[i]) + "\n")
     
     my_plot.finalize()
