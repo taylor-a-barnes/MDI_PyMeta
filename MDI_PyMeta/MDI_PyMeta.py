@@ -215,7 +215,7 @@ if __name__ == "__main__":
 
             #print("   Colvar_val: " + str(colvar_val/angstrom_to_atomic))
 
-            output.write(str(i) + " " + str(colvar_val) + " " + str(width) + " " + str(height) + "\n")
+            output.write(str(time_step) + " " + str(colvar_val) + " " + str(width) + " " + str(height) + "\n")
 
     # Send the "EXIT" command to each of the engines
     mdi.MDI_Send_Command("EXIT", comm)
