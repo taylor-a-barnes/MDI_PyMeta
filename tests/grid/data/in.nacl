@@ -60,26 +60,17 @@ thermo          ${out_freq}
 thermo_style 	custom step temp pe ke etotal press lx ly lz xy xz yz
 #restart 	${out_freq} restart restart2
 
-# Perform minimization
-minimize 1.0e-2 1.0e-3 100 1000
-
 # Write trajectory to file
 dump       natrjfile na custom 300 dump.na.lammpstrj id mol type mass x y z
 dump       cltrjfile cl custom 300 dump.cl.lammpstrj id mol type mass x y z
+dump            1 all xyz 1 dump.alanine.xyz
 
 # Start simulation
 
-reset_timestep 	0
-
-fix 1 all mdi 
+fix             1 all mdi 
 fix             2 all temp/csvr ${temperature} ${temperature} ${tempDamp} ${seed} # Bussi's thermostat
-fix             3 all shake 0.0001 20 100000 t 1 2 # Shake algorithm
-#fix             2 all npt temp ${temperature} ${temperature} ${tempDamp} iso ${pressure} ${pressure} ${pressureDamp}
-#fix             3 all nve
-fix             4 all nph iso ${pressure} ${pressure} ${pressureDamp} # Isotropic barostat
-fix    		    5 all momentum 10000 linear 1 1 1 # Set total linear momentum to zero every 10000 steps
+fix             3 all nve
 
 velocity        all create ${temperature} ${seed} dist gaussian
 
-#run 10000
 mdi
