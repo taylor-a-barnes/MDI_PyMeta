@@ -1,4 +1,4 @@
-class CollectiveVariable:
+class CollectiveVariable(object):
     def __init__(self):
         self.value_ = 0.0
         self.natoms_ = 0

@@ -8,21 +8,27 @@ except:
     raise Exception("Unable to import the MDI Library")
 
 # Import MPI Library
-try:
-    from mpi4py import MPI
-    use_mpi4py = True
-    mpi_comm_world = MPI.COMM_WORLD
-except ImportError:
-    use_mpi4py = False
-    mpi_comm_world = None
+#try:
+#    from mpi4py import MPI
+#    use_mpi4py = True
+#    mpi_comm_world = MPI.COMM_WORLD
+#except ImportError:
+use_mpi4py = False
+mpi_comm_world = None
 
 import math
 import utils.collectivevariable as cv
 import utils.distance as distance
 import utils.utils as ut
-import utils.plot as pl
+try:
+    import utils.plot as pl
+    animated_draw = True
+except ImportError:
+    animated_draw = False
 
 if __name__ == "__main__":
+
+    print("AAA HERE 1")
 
     # Read the command-line options
     iarg = 1
@@ -38,6 +44,7 @@ if __name__ == "__main__":
 
         iarg += 1
 
+    print("AAA HERE 2")
     # Confirm that the MDI options were provided
     if mdi_options is None:
         raise Exception("-mdi command-line option was not provided")
@@ -45,6 +52,7 @@ if __name__ == "__main__":
     # Initialize the MDI Library
     mdi.MDI_Init(mdi_options, mpi_comm_world)
 
+    print("AAA HERE 3")
     # Get unit conversions
     colvar = distance.Distance(319, 320)
     kcalmol_to_atomic = mdi.MDI_Conversion_Factor("kilocalorie_per_mol","atomic_unit_of_energy")
@@ -54,7 +62,8 @@ if __name__ == "__main__":
     # Input parameters
     width = 0.2 * angstrom_to_atomic # Gaussian width of first collective variable
     height = 0.1 * kcalmol_to_atomic # Gaussian height of first collective variable
-    total_steps = 30000000 # Number of MD iterations. Note timestep = 2fs
+    #total_steps = 30000000 # Number of MD iterations. Note timestep = 2fs
+    total_steps = 10000 # Number of MD iterations. Note timestep = 2fs
     tau_gaussian = 400 # Frequency of addition of Gaussians
     upper_restraint = 14.0 * angstrom_to_atomic
     lower_restraint = 1.0 * angstrom_to_atomic
@@ -62,7 +71,7 @@ if __name__ == "__main__":
     lower_window = 2.4 * angstrom_to_atomic
     k_restraint = 10 * kcalmol_per_angstrom_to_atomic
     verbose = False
-    animated_draw = True
+    #animated_draw = True
 
     grid_fac = 1
     ngrid = 4000 * grid_fac
@@ -79,9 +88,11 @@ if __name__ == "__main__":
     time_force_update = 0.0
 
     s_of_t = [ ] # value of collective variable at time t'
+    print("AAA HERE 4")
 
     # Creat a plot of the results
-    my_plot = pl.AnimatedPlot(kcalmol_to_atomic, angstrom_to_atomic)
+    if animated_draw:
+        my_plot = pl.AnimatedPlot(kcalmol_to_atomic, angstrom_to_atomic)
 
     # Connect to the engines
     comm = mdi.MDI_Accept_Communicator()
@@ -108,10 +119,10 @@ if __name__ == "__main__":
     output = open("s_of_t.out", "w")
 
     for time_step in range(total_steps + 1):
-        time_iter_start = time.perf_counter()
+        time_iter_start = time.clock()
 
         # Proceed to the next point of force evaluation
-        time_start = time.perf_counter()
+        time_start = time.clock()
         mdi.MDI_Send_Command("@FORCES", comm)
 
         # Get simulation box size
@@ -124,11 +135,11 @@ if __name__ == "__main__":
         # Get current Cartesian coordinates
         mdi.MDI_Send_Command("<COORDS", comm)
         coords = mdi.MDI_Recv(3*natoms, mdi.MDI_DOUBLE, comm)
-        time_end = time.perf_counter()
+        time_end = time.clock()
         time_integrate += time_end - time_start
         
         # Compute values of CVs and gradients
-        time_start = time.perf_counter()
+        time_start = time.clock()
         colvar.Evaluate(coords, natoms, box_len)
         colvar_val = colvar.GetValue()
 
@@ -138,19 +149,19 @@ if __name__ == "__main__":
                 arg = ( i * dgrid ) - colvar_val
                 bias[i] -= ut.Gaussian(arg, width, height)
                 bias_derv[i] += ut.Gaussian_derv(arg, width, height)
-        time_end = time.perf_counter()
+        time_end = time.clock()
         time_bias_pot += time_end - time_start
 
         if time_step % tau_gaussian == 0:
-            time_start = time.perf_counter()
+            time_start = time.clock()
             if animated_draw:
                 my_plot.show(s_of_t, width, height, bias, dgrid)
-            time_end = time.perf_counter()
+            time_end = time.clock()
             time_draw += time_end - time_start
 
         # Evaluate the derivative of Gaussians wrt to Cartesian Coordinates
-        time_start = time.perf_counter()
-        index1 = math.floor( colvar_val / dgrid )
+        time_start = time.clock()
+        index1 = int( math.floor( colvar_val / dgrid ) )
         index2 = index1 + 1
         fgrid = ( colvar_val / dgrid ) - float(index1)
         test = (1.0 - fgrid) * bias_derv[ index1 ] + fgrid * bias_derv[ index2 ]
@@ -161,11 +172,11 @@ if __name__ == "__main__":
         # Apply restraints
         if colvar_val > upper_restraint:
             dVg_ds = k_restraint * ( colvar_val - upper_restraint )
-        time_end = time.perf_counter()
+        time_end = time.clock()
         time_bias_force += time_end - time_start
 
         # Compute the updated forces
-        time_start = time.perf_counter()
+        time_start = time.clock()
         mdi.MDI_Send_Command("<FORCES", comm)
         forces = mdi.MDI_Recv(3*natoms, mdi.MDI_DOUBLE, comm)
         for idx_atom in range(2):
@@ -176,10 +187,10 @@ if __name__ == "__main__":
         # Send the new forces to the engine
         mdi.MDI_Send_Command(">FORCES", comm)
         mdi.MDI_Send(forces, 3*natoms, mdi.MDI_DOUBLE, comm)
-        time_end = time.perf_counter()
+        time_end = time.clock()
         time_force_update += time_end - time_start
 
-        time_iter_end = time.perf_counter()
+        time_iter_end = time.clock()
         time_iter += time_iter_end - time_iter_start
 
         if time_step % tau_gaussian == 0:
@@ -209,4 +220,5 @@ if __name__ == "__main__":
     # Send the "EXIT" command to each of the engines
     mdi.MDI_Send_Command("EXIT", comm)
     
-    my_plot.finalize()
+    if animated_draw:
+        my_plot.finalize()
