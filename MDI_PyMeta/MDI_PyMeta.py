@@ -1,4 +1,5 @@
 import sys
+import time
 
 # Import the MDI Library
 try:
@@ -60,13 +61,22 @@ if __name__ == "__main__":
     upper_window = 8.0 * angstrom_to_atomic
     lower_window = 2.4 * angstrom_to_atomic
     k_restraint = 10 * kcalmol_per_angstrom_to_atomic
-    verbose = False;
+    verbose = False
+    animated_draw = True
 
     grid_fac = 1
     ngrid = 4000 * grid_fac
     dgrid = 0.005 * angstrom_to_atomic / float(grid_fac)
     bias = [ 0.0 for i in range(ngrid) ]
     bias_derv = [ 0.0 for i in range(ngrid) ]
+
+    # Timings variables
+    time_iter = 0.0
+    time_integrate = 0.0
+    time_bias_pot = 0.0
+    time_bias_force = 0.0
+    time_draw = 0.0
+    time_force_update = 0.0
 
     s_of_t = [ ] # value of collective variable at time t'
 
@@ -94,10 +104,14 @@ if __name__ == "__main__":
 
     print("MD Simulation successfully initialized")
 
+    # Open file for Gaussian outputs
+    output = open("s_of_t.out", "w")
+
     for time_step in range(total_steps + 1):
-        print("Iteration " + str(time_step) + " out of " + str(total_steps))
+        time_iter_start = time.perf_counter()
 
         # Proceed to the next point of force evaluation
+        time_start = time.perf_counter()
         mdi.MDI_Send_Command("@FORCES", comm)
 
         # Get simulation box size
@@ -110,26 +124,32 @@ if __name__ == "__main__":
         # Get current Cartesian coordinates
         mdi.MDI_Send_Command("<COORDS", comm)
         coords = mdi.MDI_Recv(3*natoms, mdi.MDI_DOUBLE, comm)
-
+        time_end = time.perf_counter()
+        time_integrate += time_end - time_start
+        
         # Compute values of CVs and gradients
+        time_start = time.perf_counter()
         colvar.Evaluate(coords, natoms, box_len)
         colvar_val = colvar.GetValue()
 
         # Update the bias function
         if time_step % tau_gaussian == 0:
-            s_of_t.append(colvar_val)
             for i in range(ngrid):
                 arg = ( i * dgrid ) - colvar_val
                 bias[i] -= ut.Gaussian(arg, width, height)
                 bias_derv[i] += ut.Gaussian_derv(arg, width, height)
-            my_plot.show(s_of_t, width, height, bias, dgrid)
+        time_end = time.perf_counter()
+        time_bias_pot += time_end - time_start
+
+        if time_step % tau_gaussian == 0:
+            time_start = time.perf_counter()
+            if animated_draw:
+                my_plot.show(s_of_t, width, height, bias, dgrid)
+            time_end = time.perf_counter()
+            time_draw += time_end - time_start
 
         # Evaluate the derivative of Gaussians wrt to Cartesian Coordinates
-        #dVg_ds = 0.0
-        #for gauss in s_of_t:
-        #    s_of_x = colvar_val
-        #    arg = s_of_x - gauss
-        #    dVg_ds += ut.Gaussian_derv(arg, width, height)
+        time_start = time.perf_counter()
         index1 = math.floor( colvar_val / dgrid )
         index2 = index1 + 1
         fgrid = ( colvar_val / dgrid ) - float(index1)
@@ -141,8 +161,11 @@ if __name__ == "__main__":
         # Apply restraints
         if colvar_val > upper_restraint:
             dVg_ds = k_restraint * ( colvar_val - upper_restraint )
+        time_end = time.perf_counter()
+        time_bias_force += time_end - time_start
 
         # Compute the updated forces
+        time_start = time.perf_counter()
         mdi.MDI_Send_Command("<FORCES", comm)
         forces = mdi.MDI_Recv(3*natoms, mdi.MDI_DOUBLE, comm)
         for idx_atom in range(2):
@@ -153,15 +176,37 @@ if __name__ == "__main__":
         # Send the new forces to the engine
         mdi.MDI_Send_Command(">FORCES", comm)
         mdi.MDI_Send(forces, 3*natoms, mdi.MDI_DOUBLE, comm)
+        time_end = time.perf_counter()
+        time_force_update += time_end - time_start
 
-        print("   Colvar_val: " + str(colvar_val/angstrom_to_atomic))
+        time_iter_end = time.perf_counter()
+        time_iter += time_iter_end - time_iter_start
+
+        if time_step % tau_gaussian == 0:
+            time_integrate *= 100.0 / time_iter
+            time_bias_pot *= 100.0 / time_iter
+            time_bias_force *= 100.0 / time_iter
+            time_draw *= 100.0 / time_iter
+            time_force_update *= 100.0 / time_iter
+            print("Iteration " + str(time_step) + " out of " + str(total_steps) + "   (" + str(time_iter) + " s)")
+            print("   Integration:  " + str(time_integrate) + "%")
+            print("   Bias Pot:     " + str(time_bias_pot) + "%")
+            print("   Bias Force:   " + str(time_bias_force) + "%")
+            print("   Draw:         " + str(time_draw) + "%")
+            print("   Force Update: " + str(time_force_update) + "%")
+            time_integrate = 0.0
+            time_bias_pot = 0.0
+            time_bias_force = 0.0
+            time_draw = 0.0
+            time_force_update = 0.0
+
+            time_iter = 0.0
+
+            #print("   Colvar_val: " + str(colvar_val/angstrom_to_atomic))
+
+            output.write(str(i) + " " + str(colvar_val) + " " + str(width) + " " + str(height) + "\n")
 
     # Send the "EXIT" command to each of the engines
     mdi.MDI_Send_Command("EXIT", comm)
-
-    # Print the data to an output file
-    output = open("s_of_t.out", "w")
-    for i in range(len(s_of_t)):
-        output.write(str(i) + " " + str(s_of_t[i]) + "\n")
     
     my_plot.finalize()
