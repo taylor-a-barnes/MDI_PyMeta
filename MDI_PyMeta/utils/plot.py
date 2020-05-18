@@ -5,7 +5,7 @@ import matplotlib.animation as animation
 class AnimatedPlot():
     def __init__(self, kcalmol_to_atomic, angstrom_to_atomic):
         self.kb = 0.0019872041
-        self.T = 130.0
+        self.T = 1.0
         self.kcalmol_to_atomic = kcalmol_to_atomic
         self.angstrom_to_atomic = angstrom_to_atomic
 
@@ -15,8 +15,8 @@ class AnimatedPlot():
         self.ax1 = self.fig.add_subplot(1,1,1)
 
         self.x_min = 1.0 * angstrom_to_atomic
-        self.x_max = 14.0 * angstrom_to_atomic
-        self.x = np.linspace(self.x_min, self.x_max, 100)
+        self.x_max = 20.0 * angstrom_to_atomic
+        self.x = np.linspace(self.x_min, self.x_max, 200)
 
         # The most recent nsmooth Gaussians will be scaled in a running average
         self.nsmooth = 2500
@@ -38,10 +38,21 @@ class AnimatedPlot():
         xbias = [ (i * dgrid ) / self.angstrom_to_atomic for i in range(len(bias)) ]
         ybias = [ ( bias[i] - min_bias ) / self.kcalmol_to_atomic for i in range(len(bias)) ]
 
+
+        
+        epsilon = 0.2
+        sigma = 3.88
+        f_ref = 4*epsilon * ((sigma/self.x)**12 - (sigma/self.x)**6) + 2*self.kb*self.T*np.log(self.x)
+        #f_ref = 2*self.kb*self.T*np.log(self.x)
+        f_ref -= f_ref.min()
+
+        
         self.ax1.clear()
         #self.ax1.plot( self.x / self.angstrom_to_atomic, f_x / self.kcalmol_to_atomic,
         #               xbias, ybias )
-        self.ax1.plot( xbias, ybias )
+        self.ax1.plot( xbias, ybias, self.x, f_ref )
+
+        self.ax1.set_ylim([0.0, 0.5])
 
         plt.show(block = False)
         plt.pause(0.0001)

@@ -54,27 +54,30 @@ if __name__ == "__main__":
 
     print("AAA HERE 3")
     # Get unit conversions
-    colvar = distance.Distance(319, 320)
+    colvar = distance.Distance(1, 2)
     kcalmol_to_atomic = mdi.MDI_Conversion_Factor("kilocalorie_per_mol","atomic_unit_of_energy")
     angstrom_to_atomic = mdi.MDI_Conversion_Factor("angstrom","atomic_unit_of_length")
     kcalmol_per_angstrom_to_atomic = kcalmol_to_atomic / angstrom_to_atomic
 
     # Input parameters
     width = 0.2 * angstrom_to_atomic # Gaussian width of first collective variable
-    height = 0.1 * kcalmol_to_atomic # Gaussian height of first collective variable
+    #height = 0.1 * kcalmol_to_atomic # Gaussian height of first collective variable
+    height = 0.001 * kcalmol_to_atomic # Gaussian height of first collective variable
     #total_steps = 30000000 # Number of MD iterations. Note timestep = 2fs
-    total_steps = 10000 # Number of MD iterations. Note timestep = 2fs
+    total_steps = 20000000 # Number of MD iterations. Note timestep = 2fs
     tau_gaussian = 400 # Frequency of addition of Gaussians
-    upper_restraint = 14.0 * angstrom_to_atomic
+    base_restraint = 1.0
+    #upper_restraint = 12.0 * angstrom_to_atomic
+    upper_restraint = 12.0 * angstrom_to_atomic
     lower_restraint = 1.0 * angstrom_to_atomic
-    upper_window = 8.0 * angstrom_to_atomic
+    upper_window = 12.0 * angstrom_to_atomic
     lower_window = 2.4 * angstrom_to_atomic
-    k_restraint = 10 * kcalmol_per_angstrom_to_atomic
+    k_restraint = 50 * kcalmol_per_angstrom_to_atomic
     verbose = False
-    #animated_draw = True
+    animated_draw = False
 
     grid_fac = 1
-    ngrid = 4000 * grid_fac
+    ngrid = 8000 * grid_fac
     dgrid = 0.005 * angstrom_to_atomic / float(grid_fac)
     bias = [ 0.0 for i in range(ngrid) ]
     bias_derv = [ 0.0 for i in range(ngrid) ]
@@ -171,7 +174,7 @@ if __name__ == "__main__":
 
         # Apply restraints
         if colvar_val > upper_restraint:
-            dVg_ds = k_restraint * ( colvar_val - upper_restraint )
+            dVg_ds = k_restraint * ( ( colvar_val - upper_restraint ) + base_restraint )
         time_end = time.clock()
         time_bias_force += time_end - time_start
 
